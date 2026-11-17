@@ -1,0 +1,10 @@
+{
+  "description": "The app’s purpose and audience aren’t specified; the request describes setup and deployment verification for an imported project.",
+  "robots": {
+    "index": false
+  },
+  "accessibility": {
+    "addBypassLinks": false,
+    "ignoreReducedMotion": false
+  }
+}
