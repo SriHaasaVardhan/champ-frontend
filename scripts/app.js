@@ -2,9 +2,12 @@
  * CHAMPIONS LEAGUE 2026 - Interactive Application Logic
  * KMEC × NGIT Inter-College Strategy Tournament
  * Learn • Build • Compete with AI
+ * Minimal Claymorphism • Spring Motion Engine • Rich Tactile Interactivity
  */
 
 document.addEventListener('DOMContentLoaded', () => {
+  const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
   // --- SCROLL PROGRESS BAR ---
   const scrollProgressBar = document.getElementById('scroll-progress-bar');
   function updateScrollProgress() {
@@ -15,6 +18,22 @@ document.addEventListener('DOMContentLoaded', () => {
     scrollProgressBar.style.width = `${scrollPercent}%`;
   }
   window.addEventListener('scroll', updateScrollProgress, { passive: true });
+  updateScrollProgress();
+
+  // --- REUSABLE SLIDING CLAY GLIDER HELPER ---
+  function moveClayGlider(glider, targetEl, containerEl) {
+    if (!glider || !targetEl || !containerEl) return;
+    const width = targetEl.offsetWidth;
+    if (width === 0) return;
+    let offsetLeft = 0;
+    let node = targetEl;
+    while (node && node !== containerEl) {
+      offsetLeft += node.offsetLeft;
+      node = node.offsetParent;
+    }
+    glider.style.width = `${width}px`;
+    glider.style.transform = `translate3d(${offsetLeft}px, 0, 0)`;
+  }
 
   // --- SCROLL REVEAL OBSERVER (ANIMATION ON EVERY SCROLL) ---
   const revealElements = document.querySelectorAll(
@@ -42,54 +61,469 @@ document.addEventListener('DOMContentLoaded', () => {
     revealElements.forEach((el) => el.classList.add('revealed'));
   }
 
-  // --- HORIZONTAL SIDE-SCROLLING 5 TABS CONTROLS ---
+  // --- TACTILE CLAY CLICK RIPPLE ENGINE ---
+  const rippleSelector =
+    '.btn, .fact-mini-card, .choice-card-label, .elig-chip, .match-card, .tabs-quick-btn, .phase-pill-btn, .countdown-box-mini, .micro-clay-chip';
+
+  document.addEventListener('pointerdown', (e) => {
+    if (prefersReducedMotion) return;
+    const surface = e.target.closest(rippleSelector);
+    if (!surface) return;
+
+    const computedPos = window.getComputedStyle(surface).position;
+    if (computedPos === 'static') {
+      surface.style.position = 'relative';
+    }
+    if (window.getComputedStyle(surface).overflow !== 'hidden') {
+      surface.style.overflow = 'hidden';
+    }
+
+    const rect = surface.getBoundingClientRect();
+    const size = Math.max(rect.width, rect.height) * 1.15;
+    const ripple = document.createElement('span');
+    ripple.className = 'clay-ripple';
+    ripple.style.width = `${size}px`;
+    ripple.style.height = `${size}px`;
+    ripple.style.left = `${e.clientX - rect.left}px`;
+    ripple.style.top = `${e.clientY - rect.top}px`;
+    surface.appendChild(ripple);
+    ripple.addEventListener('animationend', () => ripple.remove(), { once: true });
+  });
+
+  // --- SPRING PHYSICS MAGNETIC + SQUISH ENGINE ([data-magnetic]) ---
+  if (!prefersReducedMotion && window.matchMedia('(pointer: fine)').matches) {
+    const magneticNodes = document.querySelectorAll('[data-magnetic]');
+    magneticNodes.forEach((node) => {
+      const strength = parseFloat(node.getAttribute('data-magnetic')) || 0.22;
+      let targetX = 0;
+      let targetY = 0;
+      let targetScale = 1;
+      let currentX = 0;
+      let currentY = 0;
+      let currentScale = 1;
+      let velX = 0;
+      let velY = 0;
+      let velScale = 0;
+      let hovering = false;
+      let rafId = null;
+
+      function animateMagnet() {
+        velX = (velX + (targetX - currentX) * 0.18) * 0.74;
+        velY = (velY + (targetY - currentY) * 0.18) * 0.74;
+        velScale = (velScale + (targetScale - currentScale) * 0.24) * 0.68;
+
+        currentX += velX;
+        currentY += velY;
+        currentScale += velScale;
+
+        node.style.transform = `translate3d(${currentX.toFixed(2)}px, ${currentY.toFixed(2)}px, 0) scale(${currentScale.toFixed(3)})`;
+
+        const stillMoving =
+          Math.abs(targetX - currentX) > 0.06 ||
+          Math.abs(targetY - currentY) > 0.06 ||
+          Math.abs(targetScale - currentScale) > 0.002 ||
+          Math.abs(velX) > 0.06 ||
+          Math.abs(velY) > 0.06 ||
+          Math.abs(velScale) > 0.002;
+
+        if (hovering || stillMoving) {
+          rafId = requestAnimationFrame(animateMagnet);
+        } else {
+          node.style.transform = '';
+          node.classList.remove('is-spring-active');
+          rafId = null;
+        }
+      }
+
+      node.addEventListener('mousemove', (e) => {
+        const rect = node.getBoundingClientRect();
+        const cx = rect.left + rect.width / 2;
+        const cy = rect.top + rect.height / 2;
+        targetX = (e.clientX - cx) * strength;
+        targetY = (e.clientY - cy) * strength;
+        if (!hovering) {
+          hovering = true;
+          targetScale = 1.035;
+          node.classList.add('is-spring-active');
+        }
+        if (!rafId) rafId = requestAnimationFrame(animateMagnet);
+      });
+
+      node.addEventListener('pointerdown', () => {
+        targetScale = 0.93;
+        node.classList.add('is-spring-active');
+        if (!rafId) rafId = requestAnimationFrame(animateMagnet);
+      });
+
+      node.addEventListener('pointerup', () => {
+        targetScale = hovering ? 1.035 : 1;
+        if (!rafId) rafId = requestAnimationFrame(animateMagnet);
+      });
+
+      node.addEventListener('mouseleave', () => {
+        hovering = false;
+        targetX = 0;
+        targetY = 0;
+        targetScale = 1;
+        if (!rafId) rafId = requestAnimationFrame(animateMagnet);
+      });
+    });
+  }
+
+  // --- 3D CLAY PERSPECTIVE TILT + DYNAMIC STUDIO SHEEN ([data-tilt]) ---
+  if (!prefersReducedMotion && window.matchMedia('(pointer: fine)').matches) {
+    const tiltCards = document.querySelectorAll('[data-tilt]');
+    tiltCards.forEach((card) => {
+      const maxDeg = parseFloat(card.getAttribute('data-tilt')) || 3.5;
+      let targetRX = 0;
+      let targetRY = 0;
+      let currRX = 0;
+      let currRY = 0;
+      let tiltRaf = null;
+      let hovering = false;
+
+      function stepTilt() {
+        currRX += (targetRX - currRX) * 0.14;
+        currRY += (targetRY - currRY) * 0.14;
+
+        if (hovering || Math.abs(currRX) > 0.05 || Math.abs(currRY) > 0.05) {
+          const lift = hovering ? -4 : 0;
+          card.style.transform = `perspective(1100px) translate3d(0, ${lift}px, 0) rotateX(${currRX.toFixed(2)}deg) rotateY(${currRY.toFixed(2)}deg)`;
+          tiltRaf = requestAnimationFrame(stepTilt);
+        } else {
+          card.style.transform = '';
+          card.classList.remove('is-tilting');
+          tiltRaf = null;
+        }
+      }
+
+      card.addEventListener('mousemove', (e) => {
+        if (!card.classList.contains('is-tilting')) {
+          card.classList.add('is-tilting');
+        }
+        const rect = card.getBoundingClientRect();
+        const x = e.clientX - rect.left;
+        const y = e.clientY - rect.top;
+        const px = Math.max(0, Math.min(1, x / rect.width));
+        const py = Math.max(0, Math.min(1, y / rect.height));
+
+        card.style.setProperty('--mx', `${(px * 100).toFixed(1)}%`);
+        card.style.setProperty('--my', `${(py * 100).toFixed(1)}%`);
+
+        targetRY = (px - 0.5) * 2 * maxDeg;
+        targetRX = (0.5 - py) * 2 * maxDeg;
+        hovering = true;
+        if (!tiltRaf) tiltRaf = requestAnimationFrame(stepTilt);
+      });
+
+      card.addEventListener('mouseleave', () => {
+        hovering = false;
+        targetRX = 0;
+        targetRY = 0;
+        if (!tiltRaf) tiltRaf = requestAnimationFrame(stepTilt);
+      });
+    });
+  }
+
+  // --- HEADER NAVIGATION GLIDER & SCROLL-SPY ---
+  const navShell = document.querySelector('.nav-pill-shell');
+  const navGlider = document.getElementById('nav-clay-glider');
+  const navLinks = document.querySelectorAll('.nav-link');
+  let activeNavLink = document.querySelector('.nav-link.active') || navLinks[0];
+
+  function syncNavGlider(linkEl = activeNavLink) {
+    if (!navShell || !navGlider || !linkEl) return;
+    moveClayGlider(navGlider, linkEl, navShell);
+  }
+
+  navLinks.forEach((link) => {
+    link.addEventListener('mouseenter', () => syncNavGlider(link));
+    link.addEventListener('click', () => {
+      navLinks.forEach((l) => l.classList.remove('active'));
+      link.classList.add('active');
+      activeNavLink = link;
+      syncNavGlider(link);
+      document.body.classList.remove('mobile-nav-active');
+      playTone(540, 'sine', 0.05, 0.04);
+    });
+  });
+
+  if (navShell) {
+    navShell.addEventListener('mouseleave', () => syncNavGlider(activeNavLink));
+  }
+
+  const trackedSections = ['hero', 'quick-stats', 'tournament-tabs', 'register', 'faq']
+    .map((id) => document.getElementById(id))
+    .filter(Boolean);
+
+  function updateActiveSectionOnScroll() {
+    const scrollMid = window.scrollY + window.innerHeight * 0.34;
+    let matchedSection = trackedSections[0];
+    trackedSections.forEach((sec) => {
+      if (sec.offsetTop <= scrollMid) {
+        matchedSection = sec;
+      }
+    });
+    if (matchedSection) {
+      const matchingLink = document.querySelector(`.nav-link[data-section="${matchedSection.id}"]`);
+      if (matchingLink && matchingLink !== activeNavLink) {
+        navLinks.forEach((l) => l.classList.remove('active'));
+        matchingLink.classList.add('active');
+        activeNavLink = matchingLink;
+        syncNavGlider(activeNavLink);
+      }
+    }
+  }
+
+  window.addEventListener('scroll', updateActiveSectionOnScroll, { passive: true });
+
+  function syncAllGliders() {
+    syncNavGlider(activeNavLink);
+    syncPhaseGlider();
+    syncQuickTabGlider();
+    syncBracketGlider();
+    document.querySelectorAll('.accordion-item.active .accordion-content').forEach((content) => {
+      content.style.maxHeight = content.scrollHeight + 'px';
+    });
+  }
+
+  window.addEventListener('resize', () => {
+    syncAllGliders();
+  });
+  requestAnimationFrame(syncAllGliders);
+  window.addEventListener('load', syncAllGliders);
+  if (document.fonts && document.fonts.ready) {
+    document.fonts.ready.then(syncAllGliders);
+  }
+
+  // --- INTERACTIVE HERO PHASE SWITCHER (LEARN • BUILD • COMPETE WITH AI) ---
+  const phaseSwitcher = document.querySelector('.hero-phase-switcher');
+  const phaseGlider = document.getElementById('hero-phase-glider');
+  const phaseBtns = document.querySelectorAll('.phase-pill-btn');
+  const phaseCaption = document.getElementById('hero-phase-caption');
+  const phaseDescriptions = {
+    learn: 'Master strategy game heuristics and AI code workflows in guided morning practice labs.',
+    build: 'Develop standalone Python strategy bots using Claude, Cursor, Gemini CLI, or ChatGPT.',
+    compete: 'Submit before the 02:00 PM code freeze and clash live across 32-squad knockouts.'
+  };
+
+  function syncPhaseGlider() {
+    const activePhaseBtn = document.querySelector('.phase-pill-btn.active');
+    moveClayGlider(phaseGlider, activePhaseBtn, phaseSwitcher);
+  }
+
+  function activatePhase(btn) {
+    if (!btn || btn.classList.contains('active')) return;
+    phaseBtns.forEach((b) => {
+      b.classList.remove('active');
+      b.setAttribute('aria-selected', 'false');
+    });
+    btn.classList.add('active');
+    btn.setAttribute('aria-selected', 'true');
+    moveClayGlider(phaseGlider, btn, phaseSwitcher);
+
+    const phaseKey = btn.getAttribute('data-phase');
+    if (phaseCaption && phaseDescriptions[phaseKey]) {
+      phaseCaption.classList.add('morphing');
+      setTimeout(() => {
+        phaseCaption.textContent = phaseDescriptions[phaseKey];
+        phaseCaption.classList.remove('morphing');
+      }, 170);
+    }
+    playTone(560, 'triangle', 0.05, 0.035);
+  }
+
+  phaseBtns.forEach((btn) => {
+    btn.addEventListener('click', () => activatePhase(btn));
+    btn.addEventListener('mouseenter', () => activatePhase(btn));
+  });
+  requestAnimationFrame(syncPhaseGlider);
+
+  // --- INTERACTIVE HERO LOGO & QUICK FACT TILES ---
+  const heroLogoBox = document.getElementById('hero-logo-interactive');
+  if (heroLogoBox) {
+    heroLogoBox.addEventListener('click', (e) => {
+      const rect = heroLogoBox.getBoundingClientRect();
+      launchClayConfetti(rect.left + rect.width / 2, rect.top + rect.height / 2, 26);
+      playTone(660, 'triangle', 0.1, 0.05);
+      showToast('Champions League 2026 • KMEC × NGIT');
+    });
+  }
+
+  // --- HORIZONTAL SIDE-SCROLLING TABS + MOMENTUM DRAG + QUICK-BAR ---
   const tabsTrack = document.getElementById('horizontal-tabs-track');
   const scrollPrevBtn = document.getElementById('scroll-prev-btn');
   const scrollNextBtn = document.getElementById('scroll-next-btn');
+  const quickBar = document.getElementById('tabs-quick-bar');
+  const quickGlider = document.getElementById('tabs-quick-glider');
+  const quickBtns = document.querySelectorAll('.tabs-quick-btn');
+  const tabCards = document.querySelectorAll('.horizontal-tab-card');
+  const progressTrack = document.getElementById('carousel-progress-track');
+  const progressThumb = document.getElementById('carousel-progress-thumb');
+
+  function syncQuickTabGlider() {
+    const activeQuick = document.querySelector('.tabs-quick-btn.active');
+    moveClayGlider(quickGlider, activeQuick, quickBar);
+  }
+
+  function scrollToTabCard(index) {
+    if (!tabsTrack || !tabCards[index]) return;
+    const card = tabCards[index];
+    const targetLeft = card.offsetLeft - tabsTrack.offsetLeft - 10;
+    tabsTrack.scrollTo({ left: Math.max(0, targetLeft), behavior: 'smooth' });
+    quickBtns.forEach((b, i) => b.classList.toggle('active', i === index));
+    syncQuickTabGlider();
+    playTone(500 + index * 25, 'sine', 0.05, 0.04);
+  }
+
+  quickBtns.forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const idx = parseInt(btn.getAttribute('data-tab-index'), 10) || 0;
+      scrollToTabCard(idx);
+    });
+  });
+  requestAnimationFrame(syncQuickTabGlider);
+
+  // Hero Quick Fact Tiles Jump Actions
+  document.querySelectorAll('.clay-interactive-tile').forEach((tile) => {
+    tile.addEventListener('click', () => {
+      const jumpSel = tile.getAttribute('data-jump');
+      const pulseId = tile.getAttribute('data-pulse');
+      const tabJump = tile.getAttribute('data-tab-jump');
+
+      if (tabJump !== null) {
+        const tabsSec = document.getElementById('tournament-tabs');
+        if (tabsSec) tabsSec.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        setTimeout(() => scrollToTabCard(parseInt(tabJump, 10)), 320);
+      } else if (jumpSel) {
+        const dest = document.querySelector(jumpSel);
+        if (dest) dest.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        if (pulseId) {
+          const pulseCard = document.getElementById(pulseId);
+          if (pulseCard) {
+            pulseCard.classList.remove('clay-pulse-highlight');
+            void pulseCard.offsetWidth;
+            pulseCard.classList.add('clay-pulse-highlight');
+          }
+        }
+      }
+      playTone(520, 'triangle', 0.06, 0.04);
+    });
+  });
 
   if (tabsTrack && scrollPrevBtn && scrollNextBtn) {
     scrollPrevBtn.addEventListener('click', () => {
-      tabsTrack.scrollBy({ left: -460, behavior: 'smooth' });
+      tabsTrack.scrollBy({ left: -475, behavior: 'smooth' });
       playTone(450, 'sine', 0.04);
     });
 
     scrollNextBtn.addEventListener('click', () => {
-      tabsTrack.scrollBy({ left: 460, behavior: 'smooth' });
+      tabsTrack.scrollBy({ left: 475, behavior: 'smooth' });
       playTone(490, 'sine', 0.04);
     });
 
-    // Mouse drag-to-scroll support for desktop
+    // Sync Quick Tab Bar + Scrubber Progress on Track Scroll
+    tabsTrack.addEventListener(
+      'scroll',
+      () => {
+        const maxScroll = Math.max(1, tabsTrack.scrollWidth - tabsTrack.clientWidth);
+        const ratio = Math.min(1, Math.max(0, tabsTrack.scrollLeft / maxScroll));
+        if (progressThumb) {
+          progressThumb.style.width = `${18 + ratio * 82}%`;
+        }
+
+        let closestIdx = 0;
+        let minDelta = Infinity;
+        const trackLeftEdge = tabsTrack.scrollLeft + 80;
+        tabCards.forEach((card, idx) => {
+          const cardPos = card.offsetLeft - tabsTrack.offsetLeft;
+          const delta = Math.abs(cardPos - trackLeftEdge);
+          if (delta < minDelta) {
+            minDelta = delta;
+            closestIdx = idx;
+          }
+        });
+
+        const currentActive = document.querySelector('.tabs-quick-btn.active');
+        if (quickBtns[closestIdx] && quickBtns[closestIdx] !== currentActive) {
+          quickBtns.forEach((b, i) => b.classList.toggle('active', i === closestIdx));
+          syncQuickTabGlider();
+        }
+      },
+      { passive: true }
+    );
+
+    if (progressTrack) {
+      progressTrack.addEventListener('click', (e) => {
+        const rect = progressTrack.getBoundingClientRect();
+        const ratio = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
+        const maxScroll = tabsTrack.scrollWidth - tabsTrack.clientWidth;
+        tabsTrack.scrollTo({ left: ratio * maxScroll, behavior: 'smooth' });
+        playTone(510, 'sine', 0.04);
+      });
+    }
+
+    // Momentum Drag-to-Scroll Physics for Desktop
     let isDown = false;
     let startX = 0;
     let scrollLeftPos = 0;
+    let lastX = 0;
+    let velocity = 0;
+    let momentumId = null;
+
+    function stopMomentum() {
+      if (momentumId) {
+        cancelAnimationFrame(momentumId);
+        momentumId = null;
+      }
+    }
+
+    function runMomentum() {
+      tabsTrack.scrollLeft -= velocity;
+      velocity *= 0.92;
+      if (Math.abs(velocity) > 0.6) {
+        momentumId = requestAnimationFrame(runMomentum);
+      } else {
+        tabsTrack.classList.remove('dragging');
+        momentumId = null;
+      }
+    }
 
     tabsTrack.addEventListener('mousedown', (e) => {
+      if (e.target.closest('button')) return;
+      stopMomentum();
       isDown = true;
-      tabsTrack.style.cursor = 'grabbing';
+      tabsTrack.classList.add('dragging');
       startX = e.pageX - tabsTrack.offsetLeft;
+      lastX = e.pageX;
+      velocity = 0;
       scrollLeftPos = tabsTrack.scrollLeft;
     });
 
     tabsTrack.addEventListener('mouseleave', () => {
+      if (!isDown) return;
       isDown = false;
-      tabsTrack.style.cursor = 'default';
+      runMomentum();
     });
 
     tabsTrack.addEventListener('mouseup', () => {
+      if (!isDown) return;
       isDown = false;
-      tabsTrack.style.cursor = 'default';
+      runMomentum();
     });
 
     tabsTrack.addEventListener('mousemove', (e) => {
       if (!isDown) return;
       e.preventDefault();
       const x = e.pageX - tabsTrack.offsetLeft;
-      const walk = (x - startX) * 1.5;
+      velocity = (e.pageX - lastX) * 1.35;
+      lastX = e.pageX;
+      const walk = (x - startX) * 1.3;
       tabsTrack.scrollLeft = scrollLeftPos - walk;
     });
   }
 
-  // --- SOUND EFFECTS (Web Audio API) ---
+  // --- TACTILE CLAY SOUND EFFECTS (Web Audio API) ---
   let soundEnabled = false;
   let audioCtx = null;
 
@@ -106,8 +540,9 @@ document.addEventListener('DOMContentLoaded', () => {
       if (audioCtx.state === 'suspended') audioCtx.resume();
       const osc = audioCtx.createOscillator();
       const gain = audioCtx.createGain();
-      osc.type = type;
+      osc.type = type === 'sawtooth' ? 'triangle' : type;
       osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
+      osc.frequency.exponentialRampToValueAtTime(freq * 0.86, audioCtx.currentTime + duration);
       gain.gain.setValueAtTime(gainVal, audioCtx.currentTime);
       gain.gain.exponentialRampToValueAtTime(0.0001, audioCtx.currentTime + duration);
       osc.connect(gain);
@@ -167,14 +602,14 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // --- PARTICLE BACKGROUND CANVAS (CLEAN GRADIENT AURA, NO GRID) ---
   const canvas = document.getElementById('particle-canvas');
-  if (canvas) {
+  if (canvas && !prefersReducedMotion) {
     const ctx = canvas.getContext('2d');
     let width = (canvas.width = window.innerWidth);
     let height = (canvas.height = window.innerHeight);
     let particles = [];
-    const particleCount = Math.min(Math.floor((width * height) / 18000), 60);
+    const orbCount = Math.min(Math.floor((width * height) / 48000), 26);
 
-    let mouse = { x: -1000, y: -1000, radius: 120 };
+    let mouse = { x: -1000, y: -1000, radius: 150 };
 
     window.addEventListener('mousemove', (e) => {
       mouse.x = e.clientX;
@@ -186,79 +621,136 @@ document.addEventListener('DOMContentLoaded', () => {
       height = canvas.height = window.innerHeight;
     });
 
+    // Soft 3D Shaded Floating Clay Beads in Exact Logo Palette
+    const clayOrbPalettes = [
+      { light: 'rgba(125, 211, 252, 0.52)', mid: 'rgba(50, 190, 223, 0.32)', dark: 'rgba(6, 35, 65, 0.45)' },
+      { light: 'rgba(90, 211, 240, 0.42)', mid: 'rgba(28, 131, 146, 0.30)', dark: 'rgba(4, 23, 45, 0.48)' },
+      { light: 'rgba(255, 255, 255, 0.34)', mid: 'rgba(125, 211, 252, 0.22)', dark: 'rgba(6, 35, 65, 0.4)' }
+    ];
+
     class Particle {
       constructor() {
         this.x = Math.random() * width;
         this.y = Math.random() * height;
-        this.vx = (Math.random() - 0.5) * 0.4;
-        this.vy = (Math.random() - 0.5) * 0.4;
-        this.size = Math.random() * 2 + 1;
-        this.baseColor = Math.random() > 0.35 ? '#32BEDF' : '#1C8392';
+        this.vx = (Math.random() - 0.5) * 0.32;
+        this.vy = (Math.random() - 0.5) * 0.32;
+        this.size = Math.random() * 6 + 3.5;
+        this.palette = clayOrbPalettes[Math.floor(Math.random() * clayOrbPalettes.length)];
+        this.phase = Math.random() * Math.PI * 2;
       }
 
       update() {
-        this.x += this.vx;
-        this.y += this.vy;
+        this.phase += 0.014;
+        this.x += this.vx + Math.sin(this.phase) * 0.08;
+        this.y += this.vy + Math.cos(this.phase) * 0.08;
 
-        if (this.x < 0) this.x = width;
-        if (this.x > width) this.x = 0;
-        if (this.y < 0) this.y = height;
-        if (this.y > height) this.y = 0;
+        if (this.x < -20) this.x = width + 20;
+        if (this.x > width + 20) this.x = -20;
+        if (this.y < -20) this.y = height + 20;
+        if (this.y > height + 20) this.y = -20;
 
         const dx = mouse.x - this.x;
         const dy = mouse.y - this.y;
         const dist = Math.sqrt(dx * dx + dy * dy);
-        if (dist < mouse.radius) {
+        if (dist < mouse.radius && dist > 0.1) {
           const force = (mouse.radius - dist) / mouse.radius;
-          this.x -= (dx / dist) * force * 1.5;
-          this.y -= (dy / dist) * force * 1.5;
+          this.x -= (dx / dist) * force * 1.8;
+          this.y -= (dy / dist) * force * 1.8;
         }
       }
 
       draw() {
+        const grad = ctx.createRadialGradient(
+          this.x - this.size * 0.32,
+          this.y - this.size * 0.32,
+          this.size * 0.1,
+          this.x,
+          this.y,
+          this.size
+        );
+        grad.addColorStop(0, this.palette.light);
+        grad.addColorStop(0.55, this.palette.mid);
+        grad.addColorStop(1, this.palette.dark);
+
         ctx.beginPath();
         ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
-        ctx.fillStyle = this.baseColor;
-        ctx.shadowColor = '#32BEDF';
-        ctx.shadowBlur = 6;
+        ctx.fillStyle = grad;
         ctx.fill();
-        ctx.shadowBlur = 0;
       }
     }
 
-    for (let i = 0; i < particleCount; i++) {
+    for (let i = 0; i < orbCount; i++) {
       particles.push(new Particle());
     }
 
     function animateParticles() {
       ctx.clearRect(0, 0, width, height);
-
-      for (let a = 0; a < particles.length; a++) {
-        for (let b = a + 1; b < particles.length; b++) {
-          const dx = particles[a].x - particles[b].x;
-          const dy = particles[a].y - particles[b].y;
-          const dist = Math.sqrt(dx * dx + dy * dy);
-
-          if (dist < 130) {
-            const opacity = (1 - dist / 130) * 0.16;
-            ctx.beginPath();
-            ctx.strokeStyle = `rgba(50, 190, 223, ${opacity})`;
-            ctx.lineWidth = 1;
-            ctx.moveTo(particles[a].x, particles[a].y);
-            ctx.lineTo(particles[b].x, particles[b].y);
-            ctx.stroke();
-          }
-        }
-      }
-
       particles.forEach((p) => {
         p.update();
         p.draw();
       });
-
       requestAnimationFrame(animateParticles);
     }
     animateParticles();
+  }
+
+  // --- LOGO-PALETTE CLAY CONFETTI CELEBRATION ENGINE ---
+  const confettiCanvas = document.getElementById('confetti-canvas');
+  let confettiPieces = [];
+  let confettiAnimating = false;
+
+  function launchClayConfetti(originX = window.innerWidth / 2, originY = window.innerHeight * 0.42, count = 75) {
+    if (!confettiCanvas || prefersReducedMotion) return;
+    const cCtx = confettiCanvas.getContext('2d');
+    confettiCanvas.width = window.innerWidth;
+    confettiCanvas.height = window.innerHeight;
+
+    const logoColors = ['#32BEDF', '#1C8392', '#7DD3FC', '#FFFFFF', '#5AD3F0'];
+    for (let i = 0; i < count; i++) {
+      const angle = Math.random() * Math.PI * 2;
+      const speed = 3.5 + Math.random() * 8.5;
+      confettiPieces.push({
+        x: originX,
+        y: originY,
+        vx: Math.cos(angle) * speed,
+        vy: Math.sin(angle) * speed - 3.2,
+        r: 4 + Math.random() * 5,
+        color: logoColors[i % logoColors.length],
+        alpha: 1,
+        decay: 0.012 + Math.random() * 0.01
+      });
+    }
+
+    if (!confettiAnimating) {
+      confettiAnimating = true;
+      function stepConfetti() {
+        cCtx.clearRect(0, 0, confettiCanvas.width, confettiCanvas.height);
+        confettiPieces = confettiPieces.filter((p) => p.alpha > 0.03);
+        confettiPieces.forEach((p) => {
+          p.x += p.vx;
+          p.y += p.vy;
+          p.vy += 0.22;
+          p.vx *= 0.985;
+          p.alpha -= p.decay;
+
+          cCtx.save();
+          cCtx.globalAlpha = Math.max(0, p.alpha);
+          cCtx.beginPath();
+          cCtx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
+          cCtx.fillStyle = p.color;
+          cCtx.fill();
+          cCtx.restore();
+        });
+
+        if (confettiPieces.length > 0) {
+          requestAnimationFrame(stepConfetti);
+        } else {
+          cCtx.clearRect(0, 0, confettiCanvas.width, confettiCanvas.height);
+          confettiAnimating = false;
+        }
+      }
+      requestAnimationFrame(stepConfetti);
+    }
   }
 
   // --- COUNTDOWN TIMER ---
@@ -268,6 +760,24 @@ document.addEventListener('DOMContentLoaded', () => {
   const hElem = document.getElementById('count-hours');
   const mElem = document.getElementById('count-mins');
   const sElem = document.getElementById('count-secs');
+  const totalHoursElem = document.getElementById('count-total-hours');
+  const countdownGrid = document.getElementById('countdown-grid');
+  const countdownAlt = document.getElementById('countdown-alt-readout');
+  const countdownModeBtn = document.getElementById('countdown-mode-btn');
+  const countdownModeLabel = document.getElementById('countdown-mode-label');
+  let altCountdownMode = false;
+
+  function setDigitWithPop(elem, nextText) {
+    if (!elem) return;
+    if (elem.textContent !== nextText) {
+      elem.textContent = nextText;
+      if (!prefersReducedMotion) {
+        elem.classList.remove('digit-pop');
+        void elem.offsetWidth;
+        elem.classList.add('digit-pop');
+      }
+    }
+  }
 
   function updateCountdown() {
     const now = new Date().getTime();
@@ -278,6 +788,7 @@ document.addEventListener('DOMContentLoaded', () => {
       if (hElem) hElem.textContent = '00';
       if (mElem) mElem.textContent = '00';
       if (sElem) sElem.textContent = '00';
+      if (totalHoursElem) totalHoursElem.textContent = '0';
       return;
     }
 
@@ -285,14 +796,33 @@ document.addEventListener('DOMContentLoaded', () => {
     const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
     const mins = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
     const secs = Math.floor((diff % (1000 * 60)) / 1000);
+    const totalHrs = Math.floor(diff / (1000 * 60 * 60));
 
-    if (dElem) dElem.textContent = String(days).padStart(2, '0');
-    if (hElem) hElem.textContent = String(hours).padStart(2, '0');
-    if (mElem) mElem.textContent = String(mins).padStart(2, '0');
-    if (sElem) sElem.textContent = String(secs).padStart(2, '0');
+    setDigitWithPop(dElem, String(days).padStart(2, '0'));
+    setDigitWithPop(hElem, String(hours).padStart(2, '0'));
+    setDigitWithPop(mElem, String(mins).padStart(2, '0'));
+    setDigitWithPop(sElem, String(secs).padStart(2, '0'));
+    if (totalHoursElem) totalHoursElem.textContent = totalHrs.toLocaleString();
   }
   updateCountdown();
   setInterval(updateCountdown, 1000);
+
+  function toggleCountdownDisplay() {
+    altCountdownMode = !altCountdownMode;
+    if (countdownGrid) countdownGrid.hidden = altCountdownMode;
+    if (countdownAlt) countdownAlt.hidden = !altCountdownMode;
+    if (countdownModeLabel) {
+      countdownModeLabel.textContent = altCountdownMode ? 'Total Hrs' : 'Live IST';
+    }
+    playTone(530, 'triangle', 0.05, 0.04);
+  }
+
+  if (countdownModeBtn) {
+    countdownModeBtn.addEventListener('click', toggleCountdownDisplay);
+  }
+  document.querySelectorAll('.countdown-box-mini').forEach((box) => {
+    box.addEventListener('click', toggleCountdownDisplay);
+  });
 
   // --- HEADER SCROLL & FLOATING CTA ---
   const header = document.querySelector('.site-header');
@@ -343,6 +873,9 @@ document.addEventListener('DOMContentLoaded', () => {
     { id: 'CL26-KMEC-14', name: 'HeuristicHounds', college: 'KMEC', branch: 'CSE', members: 4, leader: 'Tarun V.' }
   ];
 
+  let activeRosterFilter = 'ALL';
+  let rosterSearchQuery = '';
+
   function getSavedTeams() {
     try {
       const stored = localStorage.getItem('cl26_teams');
@@ -359,6 +892,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const count = teams.length;
     const remaining = Math.max(0, MAX_TEAMS - count);
     const percent = Math.min(100, (count / MAX_TEAMS) * 100);
+    const kmecCount = teams.filter((t) => t.college === 'KMEC').length;
+    const ngitCount = teams.filter((t) => t.college === 'NGIT').length;
 
     const slotElements = document.querySelectorAll('.slot-count-val');
     slotElements.forEach((el) => {
@@ -369,6 +904,11 @@ document.addEventListener('DOMContentLoaded', () => {
     remElements.forEach((el) => {
       el.textContent = `${remaining} Slots Left`;
     });
+
+    const kmecCountEl = document.getElementById('kmec-team-count');
+    const ngitCountEl = document.getElementById('ngit-team-count');
+    if (kmecCountEl) kmecCountEl.textContent = String(kmecCount);
+    if (ngitCountEl) ngitCountEl.textContent = String(ngitCount);
 
     const progressFill = document.getElementById('slot-progress-fill');
     if (progressFill) {
@@ -382,7 +922,31 @@ document.addEventListener('DOMContentLoaded', () => {
     const list = document.getElementById('drawer-teams-list');
     if (!list) return;
     list.innerHTML = '';
-    teams.forEach((t, i) => {
+
+    const filtered = teams.filter((t) => {
+      const matchesFilter =
+        activeRosterFilter === 'ALL' ||
+        t.college === activeRosterFilter ||
+        t.branch === activeRosterFilter;
+      const q = rosterSearchQuery.trim().toLowerCase();
+      const matchesSearch =
+        !q ||
+        t.name.toLowerCase().includes(q) ||
+        t.leader.toLowerCase().includes(q) ||
+        t.college.toLowerCase().includes(q);
+      return matchesFilter && matchesSearch;
+    });
+
+    if (filtered.length === 0) {
+      const empty = document.createElement('div');
+      empty.className = 'drawer-empty-state';
+      empty.textContent = 'No squads match the current filter.';
+      list.appendChild(empty);
+      return;
+    }
+
+    filtered.forEach((t) => {
+      const seedIdx = teams.indexOf(t) + 1;
       const item = document.createElement('div');
       item.className = 'registered-team-item';
       item.innerHTML = `
@@ -390,7 +954,7 @@ document.addEventListener('DOMContentLoaded', () => {
           <strong>${t.name}</strong>
           <span>${t.college} • ${t.branch} • Lead: ${t.leader}</span>
         </div>
-        <div class="reg-slot-badge">#${i + 1}</div>
+        <div class="reg-slot-badge">#${seedIdx}</div>
       `;
       list.appendChild(item);
     });
@@ -398,44 +962,205 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // Drawer open/close
   const drawer = document.getElementById('teams-drawer');
+  const drawerBackdrop = document.getElementById('drawer-backdrop');
   const drawerTriggers = document.querySelectorAll('.open-teams-drawer');
   const drawerCloseBtn = document.getElementById('close-drawer-btn');
+  const drawerFilterBtns = document.querySelectorAll('.drawer-filter-btn');
+  const drawerSearchInput = document.getElementById('drawer-search-input');
+
+  function openRosterDrawer(presetFilter) {
+    if (!drawer) return;
+    if (presetFilter) {
+      activeRosterFilter = presetFilter;
+      drawerFilterBtns.forEach((b) =>
+        b.classList.toggle('active', b.getAttribute('data-roster-filter') === presetFilter)
+      );
+      renderTeamsDrawer(getSavedTeams());
+    }
+    drawer.classList.add('open');
+    if (drawerBackdrop) drawerBackdrop.classList.add('open');
+    playTone(450, 'sine', 0.05);
+  }
+
+  function closeRosterDrawer() {
+    if (!drawer) return;
+    drawer.classList.remove('open');
+    if (drawerBackdrop) drawerBackdrop.classList.remove('open');
+    playTone(380, 'sine', 0.05);
+  }
 
   drawerTriggers.forEach((btn) => {
     btn.addEventListener('click', (e) => {
       e.preventDefault();
-      drawer.classList.add('open');
-      playTone(450, 'sine', 0.05);
+      const preset = btn.getAttribute('data-filter-college');
+      openRosterDrawer(preset || null);
     });
   });
 
   if (drawerCloseBtn) {
-    drawerCloseBtn.addEventListener('click', () => {
-      drawer.classList.remove('open');
-      playTone(380, 'sine', 0.05);
+    drawerCloseBtn.addEventListener('click', closeRosterDrawer);
+  }
+  if (drawerBackdrop) {
+    drawerBackdrop.addEventListener('click', closeRosterDrawer);
+  }
+
+  drawerFilterBtns.forEach((btn) => {
+    btn.addEventListener('click', () => {
+      activeRosterFilter = btn.getAttribute('data-roster-filter') || 'ALL';
+      drawerFilterBtns.forEach((b) => b.classList.toggle('active', b === btn));
+      renderTeamsDrawer(getSavedTeams());
+      playTone(500, 'sine', 0.04);
+    });
+  });
+
+  if (drawerSearchInput) {
+    drawerSearchInput.addEventListener('input', () => {
+      rosterSearchQuery = drawerSearchInput.value;
+      renderTeamsDrawer(getSavedTeams());
     });
   }
 
-  // --- TOURNAMENT BRACKET TABS ---
+  // --- INTERACTIVE ELIGIBILITY CHECKER + PRE-FILL ---
+  const eligState = { college: 'KMEC', branch: 'CSE', year: 'II Year' };
+  const eligStatusText = document.getElementById('elig-status-text');
+  const eligApplyBtn = document.getElementById('elig-apply-btn');
+
+  function updateEligReadout() {
+    if (!eligStatusText) return;
+    const shortYr = eligState.year.replace(' Year', '');
+    eligStatusText.innerHTML = `Eligible: ${eligState.college} • ${eligState.branch} • Yr ${shortYr} — Apply &rarr;`;
+  }
+
+  document.querySelectorAll('.elig-pill-row').forEach((row) => {
+    const group = row.getAttribute('data-elig-group');
+    row.querySelectorAll('.elig-chip').forEach((chip) => {
+      chip.addEventListener('click', () => {
+        row.querySelectorAll('.elig-chip').forEach((c) => c.classList.remove('active'));
+        chip.classList.add('active');
+        eligState[group] = chip.getAttribute('data-val');
+        updateEligReadout();
+        playTone(540, 'triangle', 0.04, 0.035);
+      });
+    });
+  });
+
+  if (eligApplyBtn) {
+    eligApplyBtn.addEventListener('click', () => {
+      // Pre-select College in Step 1
+      const collegeRadio = document.querySelector(`input[name="team_college"][value="${eligState.college}"]`);
+      if (collegeRadio) {
+        collegeRadio.checked = true;
+        collegeRadio.dispatchEvent(new Event('change'));
+      }
+      // Pre-select Branch & Year in Step 2
+      const branchSelect = document.getElementById('leader_branch');
+      const yearSelect = document.getElementById('leader_year');
+      if (branchSelect) branchSelect.value = eligState.branch;
+      if (yearSelect) yearSelect.value = eligState.year;
+
+      const regSec = document.getElementById('register');
+      if (regSec) regSec.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      setTimeout(() => {
+        const teamInput = document.getElementById('team_name');
+        if (teamInput) teamInput.focus({ preventScroll: true });
+      }, 650);
+
+      showToast(`Pre-configured squad profile: ${eligState.college} • ${eligState.branch} (${eligState.year})`);
+    });
+  }
+
+  // --- TOURNAMENT BRACKET TABS + SLIDING GLIDER + LIVE TELEMETRY ---
+  const bracketTabsBar = document.getElementById('bracket-tabs-bar');
+  const bracketGlider = document.getElementById('bracket-tab-glider');
   const bracketTabs = document.querySelectorAll('.bracket-tab-btn');
   const bracketViews = document.querySelectorAll('.bracket-round-view');
+  const telemetryLabel = document.getElementById('telemetry-match-label');
+  const telemetryLatA = document.getElementById('telemetry-lat-a');
+  const telemetryLatB = document.getElementById('telemetry-lat-b');
+  const telemetryCtrlVal = document.getElementById('telemetry-ctrl-val');
+  const telemetryBarFill = document.getElementById('telemetry-bar-fill');
+  const telemetrySimBtn = document.getElementById('telemetry-sim-btn');
+  let selectedMatchCard = document.querySelector('.match-card.selected-match') || document.querySelector('.match-card');
+
+  function syncBracketGlider() {
+    const activeTab = document.querySelector('.bracket-tab-btn.active');
+    moveClayGlider(bracketGlider, activeTab, bracketTabsBar);
+  }
+
+  function updateMatchTelemetry(card) {
+    if (!card) return;
+    document.querySelectorAll('.match-card').forEach((c) => c.classList.remove('selected-match'));
+    card.classList.add('selected-match');
+    selectedMatchCard = card;
+
+    const teamA = card.getAttribute('data-team-a') || 'Squad A';
+    const teamB = card.getAttribute('data-team-b') || 'Squad B';
+    const latA = card.getAttribute('data-lat-a') || '35ms';
+    const latB = card.getAttribute('data-lat-b') || '48ms';
+    const ctrl = card.getAttribute('data-ctrl') || '60';
+
+    if (telemetryLabel) telemetryLabel.textContent = `${teamA} vs ${teamB} • Engine Telemetry`;
+    if (telemetryLatA) telemetryLatA.textContent = latA;
+    if (telemetryLatB) telemetryLatB.textContent = latB;
+    if (telemetryCtrlVal) telemetryCtrlVal.textContent = `${ctrl}%`;
+    if (telemetryBarFill) telemetryBarFill.style.width = `${ctrl}%`;
+  }
+
+  document.querySelectorAll('.match-card').forEach((card) => {
+    card.addEventListener('click', () => {
+      updateMatchTelemetry(card);
+      playTone(550, 'triangle', 0.05, 0.04);
+    });
+  });
+
+  if (telemetrySimBtn) {
+    telemetrySimBtn.addEventListener('click', () => {
+      const baseCtrl = parseInt(selectedMatchCard?.getAttribute('data-ctrl') || '60', 10);
+      let ticks = 0;
+      telemetrySimBtn.disabled = true;
+      telemetrySimBtn.textContent = 'Simulating...';
+
+      const simInterval = setInterval(() => {
+        ticks += 1;
+        const jitterCtrl = Math.min(84, Math.max(46, baseCtrl + Math.floor((Math.random() - 0.42) * 18)));
+        const randA = 22 + Math.floor(Math.random() * 22);
+        const randB = 31 + Math.floor(Math.random() * 28);
+        if (telemetryLatA) telemetryLatA.textContent = `${randA}ms`;
+        if (telemetryLatB) telemetryLatB.textContent = `${randB}ms`;
+        if (telemetryCtrlVal) telemetryCtrlVal.textContent = `${jitterCtrl}%`;
+        if (telemetryBarFill) telemetryBarFill.style.width = `${jitterCtrl}%`;
+        playTone(460 + ticks * 35, 'sine', 0.03, 0.025);
+
+        if (ticks >= 5) {
+          clearInterval(simInterval);
+          telemetrySimBtn.disabled = false;
+          telemetrySimBtn.textContent = 'Simulate Tick';
+          updateMatchTelemetry(selectedMatchCard);
+        }
+      }, 150);
+    });
+  }
 
   bracketTabs.forEach((tab) => {
     tab.addEventListener('click', () => {
       const targetRound = tab.getAttribute('data-round');
       bracketTabs.forEach((t) => t.classList.remove('active'));
       tab.classList.add('active');
+      syncBracketGlider();
       playTone(520, 'sine', 0.04);
 
       bracketViews.forEach((view) => {
         if (view.getAttribute('data-round-view') === targetRound) {
           view.classList.add('active');
+          const firstCard = view.querySelector('.match-card');
+          if (firstCard) updateMatchTelemetry(firstCard);
         } else {
           view.classList.remove('active');
         }
       });
     });
   });
+  requestAnimationFrame(syncBracketGlider);
 
   // --- FAQS ACCORDION ---
   const accordionTriggers = document.querySelectorAll('.accordion-trigger');
@@ -471,9 +1196,24 @@ document.addEventListener('DOMContentLoaded', () => {
   const form = document.getElementById('tournament-reg-form');
   const stepPanels = document.querySelectorAll('.step-panel');
   const wizardSteps = document.querySelectorAll('.wizard-step-item');
+  const wizardProgressFill = document.getElementById('wizard-progress-fill');
   const nextBtn = document.getElementById('wizard-next-btn');
   const prevBtn = document.getElementById('wizard-prev-btn');
   const submitBtn = document.getElementById('wizard-submit-btn');
+
+  // Clear validation errors immediately on input
+  if (form) {
+    form.querySelectorAll('.form-input, .form-select, input[type="checkbox"], input[type="radio"]').forEach((field) => {
+      field.addEventListener('input', () => {
+        const fg = field.closest('.form-group');
+        if (fg) fg.classList.remove('has-error', 'shake-error');
+      });
+      field.addEventListener('change', () => {
+        const fg = field.closest('.form-group');
+        if (fg) fg.classList.remove('has-error', 'shake-error');
+      });
+    });
+  }
 
   // Team Size Selection (3 or 4)
   const teamSizeInputs = document.querySelectorAll('input[name="team_size"]');
@@ -597,6 +1337,11 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     if (!isValid) {
+      currentPanel.querySelectorAll('.form-group.has-error').forEach((fg) => {
+        fg.classList.remove('shake-error');
+        void fg.offsetWidth;
+        fg.classList.add('shake-error');
+      });
       playTone(280, 'sawtooth', 0.12, 0.05);
       showToast('Please fill in all required fields accurately.');
     }
@@ -654,8 +1399,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
   function goToStep(step) {
     if (step < 1 || step > totalSteps) return;
+    const goingBack = step < currentStep;
 
-    stepPanels.forEach((p) => p.classList.remove('active'));
+    stepPanels.forEach((p) => p.classList.remove('active', 'step-back-anim'));
     wizardSteps.forEach((s, idx) => {
       const stepIdx = idx + 1;
       s.classList.remove('active');
@@ -669,8 +1415,14 @@ document.addEventListener('DOMContentLoaded', () => {
     const activePanel = document.querySelector(`.step-panel[data-step="${step}"]`);
     const activeWizardStep = document.querySelector(`.wizard-step-item[data-step="${step}"]`);
 
-    if (activePanel) activePanel.classList.add('active');
+    if (activePanel) {
+      if (goingBack) activePanel.classList.add('step-back-anim');
+      activePanel.classList.add('active');
+    }
     if (activeWizardStep) activeWizardStep.classList.add('active');
+    if (wizardProgressFill) {
+      wizardProgressFill.style.width = `${(step / totalSteps) * 100}%`;
+    }
 
     if (step === 1) {
       prevBtn.style.visibility = 'hidden';
@@ -690,6 +1442,16 @@ document.addEventListener('DOMContentLoaded', () => {
     currentStep = step;
     playTone(460, 'sine', 0.04);
   }
+
+  // Allow clicking completed wizard steps to jump back directly
+  wizardSteps.forEach((stepItem) => {
+    stepItem.addEventListener('click', () => {
+      const targetStep = parseInt(stepItem.getAttribute('data-step'), 10);
+      if (targetStep && targetStep < currentStep) {
+        goToStep(targetStep);
+      }
+    });
+  });
 
   if (nextBtn) {
     nextBtn.addEventListener('click', () => {
@@ -781,7 +1543,7 @@ document.addEventListener('DOMContentLoaded', () => {
       // Populate Ticket Modal
       document.getElementById('ticket-team-name').textContent = teamName;
       document.getElementById('ticket-reg-id').textContent = regId;
-      document.getElementById('ticket-college').textContent = `${college} • ${leaderBranch} • Year ${leaderYear}`;
+      document.getElementById('ticket-college').textContent = `${college} • ${leaderBranch} • ${leaderYear}`;
       document.getElementById('ticket-leader').textContent = `${leaderName} (${leaderRoll})`;
       document.getElementById('ticket-members-count').textContent = `${size} Members`;
 
@@ -794,9 +1556,16 @@ document.addEventListener('DOMContentLoaded', () => {
       const modal = document.getElementById('ticket-modal');
       modal.classList.add('active');
       playSuccessChime();
-      showToast(`🎉 Squad Registered! Pass ID: ${regId}`);
+      launchClayConfetti(window.innerWidth / 2, window.innerHeight * 0.38, 90);
+      showToast(`Squad Registered! Pass ID: ${regId}`);
 
       form.reset();
+      // Restore visual radio states after form.reset()
+      document.querySelectorAll('.choice-card-label').forEach((label) => {
+        const r = label.querySelector('input[type="radio"]');
+        if (r) label.classList.toggle('selected', r.checked);
+      });
+      if (member4Block) member4Block.style.display = 'none';
       goToStep(1);
     });
   }
@@ -836,6 +1605,19 @@ document.addEventListener('DOMContentLoaded', () => {
       });
     });
   }
+
+  // Global Escape Key Handler for Modal & Drawer
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') {
+      if (ticketModal && ticketModal.classList.contains('active')) {
+        ticketModal.classList.remove('active');
+      }
+      if (drawer && drawer.classList.contains('open')) {
+        closeRosterDrawer();
+      }
+      document.body.classList.remove('mobile-nav-active');
+    }
+  });
 
   // Initial slot counter sync
   updateSlotCounters();
