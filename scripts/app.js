@@ -61,10 +61,12 @@ document.addEventListener('DOMContentLoaded', () => {
     revealElements.forEach((el) => el.classList.add('revealed'));
   }
 
-  // --- TACTILE CLAY CLICK RIPPLE ENGINE ---
+  // --- TACTILE CLAY CLICK RIPPLE ENGINE (DISABLED FOR SWISS MINIMALIST STYLE) ---
   const rippleSelector =
     '.btn, .fact-mini-card, .choice-card-label, .elig-chip, .match-card, .tabs-quick-btn, .phase-pill-btn, .countdown-box-mini, .micro-clay-chip';
 
+  // Disabled in Swiss Minimalist mode - subtle hover transitions used instead
+  /*
   document.addEventListener('pointerdown', (e) => {
     if (prefersReducedMotion) return;
     const surface = e.target.closest(rippleSelector);
@@ -89,141 +91,13 @@ document.addEventListener('DOMContentLoaded', () => {
     surface.appendChild(ripple);
     ripple.addEventListener('animationend', () => ripple.remove(), { once: true });
   });
+  */
 
-  // --- SPRING PHYSICS MAGNETIC + SQUISH ENGINE ([data-magnetic]) ---
-  if (!prefersReducedMotion && window.matchMedia('(pointer: fine)').matches) {
-    const magneticNodes = document.querySelectorAll('[data-magnetic]');
-    magneticNodes.forEach((node) => {
-      const strength = parseFloat(node.getAttribute('data-magnetic')) || 0.22;
-      let targetX = 0;
-      let targetY = 0;
-      let targetScale = 1;
-      let currentX = 0;
-      let currentY = 0;
-      let currentScale = 1;
-      let velX = 0;
-      let velY = 0;
-      let velScale = 0;
-      let hovering = false;
-      let rafId = null;
+  // --- SPRING PHYSICS MAGNETIC + SQUISH ENGINE (DISABLED FOR SWISS MINIMALIST STYLE) ---
+  // In Swiss International Style, controls maintain precise, disciplined alignment with subtle 200ms transitions
 
-      function animateMagnet() {
-        velX = (velX + (targetX - currentX) * 0.18) * 0.74;
-        velY = (velY + (targetY - currentY) * 0.18) * 0.74;
-        velScale = (velScale + (targetScale - currentScale) * 0.24) * 0.68;
-
-        currentX += velX;
-        currentY += velY;
-        currentScale += velScale;
-
-        node.style.transform = `translate3d(${currentX.toFixed(2)}px, ${currentY.toFixed(2)}px, 0) scale(${currentScale.toFixed(3)})`;
-
-        const stillMoving =
-          Math.abs(targetX - currentX) > 0.06 ||
-          Math.abs(targetY - currentY) > 0.06 ||
-          Math.abs(targetScale - currentScale) > 0.002 ||
-          Math.abs(velX) > 0.06 ||
-          Math.abs(velY) > 0.06 ||
-          Math.abs(velScale) > 0.002;
-
-        if (hovering || stillMoving) {
-          rafId = requestAnimationFrame(animateMagnet);
-        } else {
-          node.style.transform = '';
-          node.classList.remove('is-spring-active');
-          rafId = null;
-        }
-      }
-
-      node.addEventListener('mousemove', (e) => {
-        const rect = node.getBoundingClientRect();
-        const cx = rect.left + rect.width / 2;
-        const cy = rect.top + rect.height / 2;
-        targetX = (e.clientX - cx) * strength;
-        targetY = (e.clientY - cy) * strength;
-        if (!hovering) {
-          hovering = true;
-          targetScale = 1.035;
-          node.classList.add('is-spring-active');
-        }
-        if (!rafId) rafId = requestAnimationFrame(animateMagnet);
-      });
-
-      node.addEventListener('pointerdown', () => {
-        targetScale = 0.93;
-        node.classList.add('is-spring-active');
-        if (!rafId) rafId = requestAnimationFrame(animateMagnet);
-      });
-
-      node.addEventListener('pointerup', () => {
-        targetScale = hovering ? 1.035 : 1;
-        if (!rafId) rafId = requestAnimationFrame(animateMagnet);
-      });
-
-      node.addEventListener('mouseleave', () => {
-        hovering = false;
-        targetX = 0;
-        targetY = 0;
-        targetScale = 1;
-        if (!rafId) rafId = requestAnimationFrame(animateMagnet);
-      });
-    });
-  }
-
-  // --- 3D CLAY PERSPECTIVE TILT + DYNAMIC STUDIO SHEEN ([data-tilt]) ---
-  if (!prefersReducedMotion && window.matchMedia('(pointer: fine)').matches) {
-    const tiltCards = document.querySelectorAll('[data-tilt]');
-    tiltCards.forEach((card) => {
-      const maxDeg = parseFloat(card.getAttribute('data-tilt')) || 3.5;
-      let targetRX = 0;
-      let targetRY = 0;
-      let currRX = 0;
-      let currRY = 0;
-      let tiltRaf = null;
-      let hovering = false;
-
-      function stepTilt() {
-        currRX += (targetRX - currRX) * 0.14;
-        currRY += (targetRY - currRY) * 0.14;
-
-        if (hovering || Math.abs(currRX) > 0.05 || Math.abs(currRY) > 0.05) {
-          const lift = hovering ? -4 : 0;
-          card.style.transform = `perspective(1100px) translate3d(0, ${lift}px, 0) rotateX(${currRX.toFixed(2)}deg) rotateY(${currRY.toFixed(2)}deg)`;
-          tiltRaf = requestAnimationFrame(stepTilt);
-        } else {
-          card.style.transform = '';
-          card.classList.remove('is-tilting');
-          tiltRaf = null;
-        }
-      }
-
-      card.addEventListener('mousemove', (e) => {
-        if (!card.classList.contains('is-tilting')) {
-          card.classList.add('is-tilting');
-        }
-        const rect = card.getBoundingClientRect();
-        const x = e.clientX - rect.left;
-        const y = e.clientY - rect.top;
-        const px = Math.max(0, Math.min(1, x / rect.width));
-        const py = Math.max(0, Math.min(1, y / rect.height));
-
-        card.style.setProperty('--mx', `${(px * 100).toFixed(1)}%`);
-        card.style.setProperty('--my', `${(py * 100).toFixed(1)}%`);
-
-        targetRY = (px - 0.5) * 2 * maxDeg;
-        targetRX = (0.5 - py) * 2 * maxDeg;
-        hovering = true;
-        if (!tiltRaf) tiltRaf = requestAnimationFrame(stepTilt);
-      });
-
-      card.addEventListener('mouseleave', () => {
-        hovering = false;
-        targetRX = 0;
-        targetRY = 0;
-        if (!tiltRaf) tiltRaf = requestAnimationFrame(stepTilt);
-      });
-    });
-  }
+  // --- 3D CLAY PERSPECTIVE TILT + DYNAMIC STUDIO SHEEN (DISABLED FOR SWISS MINIMALIST STYLE) ---
+  // Flat, architectural content surfaces without 3D tilt or perspective warping
 
   // --- HEADER NAVIGATION GLIDER & SCROLL-SPY ---
   const navShell = document.querySelector('.nav-pill-shell');
@@ -600,157 +474,14 @@ document.addEventListener('DOMContentLoaded', () => {
     }, 3200);
   };
 
-  // --- PARTICLE BACKGROUND CANVAS (CLEAN GRADIENT AURA, NO GRID) ---
-  const canvas = document.getElementById('particle-canvas');
-  if (canvas && !prefersReducedMotion) {
-    const ctx = canvas.getContext('2d');
-    let width = (canvas.width = window.innerWidth);
-    let height = (canvas.height = window.innerHeight);
-    let particles = [];
-    const orbCount = Math.min(Math.floor((width * height) / 48000), 26);
+  // --- PARTICLE BACKGROUND CANVAS (DISABLED FOR SWISS MINIMALIST STYLE) ---
+  // In Swiss International Style, clean near-white architectural surfaces replace particle effects
 
-    let mouse = { x: -1000, y: -1000, radius: 150 };
-
-    window.addEventListener('mousemove', (e) => {
-      mouse.x = e.clientX;
-      mouse.y = e.clientY;
-    });
-
-    window.addEventListener('resize', () => {
-      width = canvas.width = window.innerWidth;
-      height = canvas.height = window.innerHeight;
-    });
-
-    // Soft 3D Shaded Floating Clay Beads in Exact Logo Palette
-    const clayOrbPalettes = [
-      { light: 'rgba(125, 211, 252, 0.52)', mid: 'rgba(50, 190, 223, 0.32)', dark: 'rgba(6, 35, 65, 0.45)' },
-      { light: 'rgba(90, 211, 240, 0.42)', mid: 'rgba(28, 131, 146, 0.30)', dark: 'rgba(4, 23, 45, 0.48)' },
-      { light: 'rgba(255, 255, 255, 0.34)', mid: 'rgba(125, 211, 252, 0.22)', dark: 'rgba(6, 35, 65, 0.4)' }
-    ];
-
-    class Particle {
-      constructor() {
-        this.x = Math.random() * width;
-        this.y = Math.random() * height;
-        this.vx = (Math.random() - 0.5) * 0.32;
-        this.vy = (Math.random() - 0.5) * 0.32;
-        this.size = Math.random() * 6 + 3.5;
-        this.palette = clayOrbPalettes[Math.floor(Math.random() * clayOrbPalettes.length)];
-        this.phase = Math.random() * Math.PI * 2;
-      }
-
-      update() {
-        this.phase += 0.014;
-        this.x += this.vx + Math.sin(this.phase) * 0.08;
-        this.y += this.vy + Math.cos(this.phase) * 0.08;
-
-        if (this.x < -20) this.x = width + 20;
-        if (this.x > width + 20) this.x = -20;
-        if (this.y < -20) this.y = height + 20;
-        if (this.y > height + 20) this.y = -20;
-
-        const dx = mouse.x - this.x;
-        const dy = mouse.y - this.y;
-        const dist = Math.sqrt(dx * dx + dy * dy);
-        if (dist < mouse.radius && dist > 0.1) {
-          const force = (mouse.radius - dist) / mouse.radius;
-          this.x -= (dx / dist) * force * 1.8;
-          this.y -= (dy / dist) * force * 1.8;
-        }
-      }
-
-      draw() {
-        const grad = ctx.createRadialGradient(
-          this.x - this.size * 0.32,
-          this.y - this.size * 0.32,
-          this.size * 0.1,
-          this.x,
-          this.y,
-          this.size
-        );
-        grad.addColorStop(0, this.palette.light);
-        grad.addColorStop(0.55, this.palette.mid);
-        grad.addColorStop(1, this.palette.dark);
-
-        ctx.beginPath();
-        ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
-        ctx.fillStyle = grad;
-        ctx.fill();
-      }
-    }
-
-    for (let i = 0; i < orbCount; i++) {
-      particles.push(new Particle());
-    }
-
-    function animateParticles() {
-      ctx.clearRect(0, 0, width, height);
-      particles.forEach((p) => {
-        p.update();
-        p.draw();
-      });
-      requestAnimationFrame(animateParticles);
-    }
-    animateParticles();
-  }
-
-  // --- LOGO-PALETTE CLAY CONFETTI CELEBRATION ENGINE ---
-  const confettiCanvas = document.getElementById('confetti-canvas');
-  let confettiPieces = [];
-  let confettiAnimating = false;
-
-  function launchClayConfetti(originX = window.innerWidth / 2, originY = window.innerHeight * 0.42, count = 75) {
-    if (!confettiCanvas || prefersReducedMotion) return;
-    const cCtx = confettiCanvas.getContext('2d');
-    confettiCanvas.width = window.innerWidth;
-    confettiCanvas.height = window.innerHeight;
-
-    const logoColors = ['#32BEDF', '#1C8392', '#7DD3FC', '#FFFFFF', '#5AD3F0'];
-    for (let i = 0; i < count; i++) {
-      const angle = Math.random() * Math.PI * 2;
-      const speed = 3.5 + Math.random() * 8.5;
-      confettiPieces.push({
-        x: originX,
-        y: originY,
-        vx: Math.cos(angle) * speed,
-        vy: Math.sin(angle) * speed - 3.2,
-        r: 4 + Math.random() * 5,
-        color: logoColors[i % logoColors.length],
-        alpha: 1,
-        decay: 0.012 + Math.random() * 0.01
-      });
-    }
-
-    if (!confettiAnimating) {
-      confettiAnimating = true;
-      function stepConfetti() {
-        cCtx.clearRect(0, 0, confettiCanvas.width, confettiCanvas.height);
-        confettiPieces = confettiPieces.filter((p) => p.alpha > 0.03);
-        confettiPieces.forEach((p) => {
-          p.x += p.vx;
-          p.y += p.vy;
-          p.vy += 0.22;
-          p.vx *= 0.985;
-          p.alpha -= p.decay;
-
-          cCtx.save();
-          cCtx.globalAlpha = Math.max(0, p.alpha);
-          cCtx.beginPath();
-          cCtx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
-          cCtx.fillStyle = p.color;
-          cCtx.fill();
-          cCtx.restore();
-        });
-
-        if (confettiPieces.length > 0) {
-          requestAnimationFrame(stepConfetti);
-        } else {
-          cCtx.clearRect(0, 0, confettiCanvas.width, confettiCanvas.height);
-          confettiAnimating = false;
-        }
-      }
-      requestAnimationFrame(stepConfetti);
-    }
+  // --- LOGO-PALETTE CONFETTI CELEBRATION ENGINE ---
+  // Neutralized for Swiss International Style (safe no-op to preserve caller compatibility)
+  function launchClayConfetti(originX, originY, count) {
+    // Purposefully minimal: no distracting confetti bursts
+    return;
   }
 
   // --- COUNTDOWN TIMER ---
